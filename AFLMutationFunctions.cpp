@@ -12,6 +12,8 @@ No source code reused.
 #include <cassert>
 #include <stdexcept>
 
+#include "VectorConcatenation.hh"
+
 template<class T>
 T SwapEndian(
 	T value
@@ -145,7 +147,7 @@ CAFLMutationFunctions::CAFLMutationFunctions()
 
 	// Set the mutation operations for havoc.
 	using namespace std::placeholders;
-	m_vecHavocOperations =
+	m_vecHavocOperationsConstSize =
 	{
 		std::bind( &CAFLMutationFunctions::FlipBit, _1, _2, _3 ),
 		std::bind( &CAFLMutationFunctions::InterestingValue<uint8_t>, _1, _2, _3 ),
@@ -164,8 +166,11 @@ CAFLMutationFunctions::CAFLMutationFunctions()
 		std::bind( &CAFLMutationFunctions::RemoveRandomBlock, _1, _2, _3 ),
 		// Reducing test case size is made more likely than increasing so that test cases remain reasonably sized.
 		std::bind( &CAFLMutationFunctions::RemoveRandomBlock, _1, _2, _3 ),
-		&CAFLMutationFunctions::RandomBlockInsert,
 		std::bind( &CAFLMutationFunctions::RandomChunkOverwrite, _1, _2, _3 )
+	};
+	m_vecHavocOperationsSizeIncrease =
+	{
+		&CAFLMutationFunctions::RandomBlockInsert,
 	};
 }
 
@@ -180,17 +185,40 @@ size_t CAFLMutationFunctions::Havoc(
 )
 {
 	// Check that the size can be mutated.
-	if( size < 0 || size > sizeMax )
+	if( size < 0 || size > sizeMax || ( size == 0 && sizeMax == 0 ) )
 		throw std::invalid_argument( "Invalid buffer size for havoc." );
 
+	// Mutate the field using a random number of mutations.
 	size_t sizeNew = size;
 	unsigned int uiHavocIterations = StackedHavocOperationsCount();
 	unsigned int uiIterationsWithErrors = 0;
+	CVectorConcatenation<MutationFunction> vcmfPossibleMutations;
 	for( int i = 0; i < uiHavocIterations; i++ )
 	{
-		// Invoke a random mutation function.
+		// Get the possible mutation operations according to size constraints.
+		vcmfPossibleMutations.Clear();
+		if( sizeMax > sizeNew )
+		{
+			// Size can increase. This should also cover situation where sizeNew == 0.
+
+			// Use mutation operations that can increase the size.
+			vcmfPossibleMutations.Concatenate( &m_vecHavocOperationsSizeIncrease );
+		}
+		if( sizeNew != 0 )
+		{
+			// There is some data to mutate.
+
+			// Use the constant size mutations.
+			vcmfPossibleMutations.Concatenate( &m_vecHavocOperationsConstSize );
+		}
+
+		// Get a random mutation function.
+		size_t sizeOperationIndex = RandomPosition( 0, vcmfPossibleMutations.Size() - 1 );
+		const MutationFunction& funcOperation = vcmfPossibleMutations[ sizeOperationIndex ];
+
+		// Invoke the random mutation function.
 		size_t sizeBeforeMutation = sizeNew;
-		sizeNew = m_vecHavocOperations[ RandomPosition( 0, m_vecHavocOperations.size() - 1 ) ]( *this, pui8Buffer, sizeNew, sizeMax );
+		sizeNew = funcOperation( this, pui8Buffer, sizeNew, sizeMax );
 
 		// Do not count iterations where mutation fails.
 		// The buffer may not have been large enough, for example.

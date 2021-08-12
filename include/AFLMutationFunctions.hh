@@ -129,11 +129,14 @@ namespace AFLMutationFunctions
 
 		//! Type of mutation operations used in Havoc.
 		using MutationOperation = size_t(
-			CAFLMutationFunctions&,
+			CAFLMutationFunctions*,
 			uint8_t* pui8Buffer,
 			size_t size,
-			size_t sizeMax );
-		std::vector<std::function<MutationOperation>> m_vecHavocOperations;  //<! Callbacks to mutation operations used in havoc.
+			size_t sizeMax
+		);
+		using MutationFunction = std::function<MutationOperation>;
+		std::vector<MutationFunction> m_vecHavocOperationsConstSize;  //<! Callbacks to mutation operations used in havoc.
+		std::vector<MutationFunction> m_vecHavocOperationsSizeIncrease;
 
 		// Constants.
 		const unsigned int MAX_FAILED_MUTATIONS = 128;
