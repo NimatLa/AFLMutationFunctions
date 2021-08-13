@@ -14,6 +14,8 @@ The purpose is to make the operations more reusable.
 #include <span>
 #include <functional>
 
+#include "AlignmentSafeReference.hh"
+
 namespace AFLMutationFunctions
 {
 	//! A class that implements the AFL mutation operations.
@@ -119,7 +121,7 @@ namespace AFLMutationFunctions
 
 		//! Chooses a random position in a buffer and returns an iteger reference to that position.
 		template<class T>
-		inline T& ChooseRandomValueReference(
+		inline CAlignmentSafeReference< T > ChooseRandomValueReference(
 			uint8_t* pui8Buffer,  //!< Buffer to choose from.
 			size_t size  //!< Size of the buffer.
 		);
