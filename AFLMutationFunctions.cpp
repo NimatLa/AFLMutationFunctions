@@ -94,10 +94,10 @@ CAFLMutationFunctions::CAFLMutationFunctions()
 		std::numeric_limits<int8_t>::max() + 1,
 		std::numeric_limits<uint8_t>::max(),
 		std::numeric_limits<uint8_t>::max() + 1,
-		2 ^ 9,
+		1 << 9,
 		1000,
-		2 ^ 10,
-		2 ^ 12,
+		1 << 10,
+		1 << 12,
 		std::numeric_limits<int16_t>::min(),
 	};
 
