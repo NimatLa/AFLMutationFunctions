@@ -66,7 +66,7 @@ void AddOtherEndian(
 	vecInteresting.reserve( vecInteresting.size() * 2 );
 	size_t sizeItems = vecInteresting.size();
 	for( int i = 0; i < sizeItems; i++ )
-		vecInteresting.push_back( SwapEndian<std::make_unsigned<T>::type>( static_cast<typename std::make_unsigned<T>::type>( vecInteresting[ i ] ) ) );
+		vecInteresting.push_back( SwapEndian<typename std::make_unsigned<T>::type>( static_cast<typename std::make_unsigned<T>::type>( vecInteresting[ i ] ) ) );
 }
 
 namespace AFLMutationFunctions
