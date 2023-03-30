@@ -11,62 +11,44 @@ No source code reused.
 #include <random>
 #include <cassert>
 #include <stdexcept>
+#include <bit>
+#include <ranges>
+#include <algorithm>
+#include <array>
+#include <utility>
 
 #include "VectorConcatenation.hh"
 
-template<class T>
-T SwapEndian(
-	T value
-);
+using byte = AFLMutationFunctions::CAFLMutationFunctions::byte;
 
-//! Swap the endianness of a value.
-template<>
-uint8_t SwapEndian(
-	uint8_t ui8Value  //!< Value whose endianness is swapped.
-)
+template<std::integral T>
+constexpr T SwapEndian(
+	const T value
+) noexcept
 {
-	// Single byte values are the same in both endiands.
-	return ui8Value;
+	// Create a byte array representation of the value and reverse it.
+	auto bytes = std::bit_cast<std::array<byte, sizeof( T )>>( value );
+	std::reverse( std::begin( bytes ), std::end( bytes ) );
+	return std::bit_cast<T>( bytes );
 }
 
-//! Swap the endianness of a value.
-template<>
-uint16_t SwapEndian(
-	uint16_t ui16Value  //!< Value whose endianness is swapped.
-)
-{
-	return _byteswap_ushort( ui16Value );
-}
+// Compile time test cases for SwapEndian.
+static_assert( SwapEndian<uint8_t>( 1 ) == 1 );
+static_assert( SwapEndian<uint64_t>( 0x1000000000000000 ) == 0x10 );
 
-//! Swap the endianness of a value.
-template<>
-uint32_t SwapEndian(
-	uint32_t ui32Value  //!< Value whose endianness is swapped.
-)
+template<typename Range, std::integral T>
+requires std::ranges::output_range<Range, const std::ranges::range_value_t<Range> &> &&
+( sizeof( std::ranges::range_value_t<Range> ) <= sizeof( T ) )
+constexpr void AddValuesAndTheirSwappedEndians(
+	const Range& source,
+	std::vector<T> target
+) noexcept
 {
-	return _byteswap_ulong( ui32Value );
-}
-
-//! Swap the endianness of a value.
-template<>
-uint64_t SwapEndian(
-	uint64_t ui64Value  //!< Value whose endianness is swapped.
-)
-{
-	return _byteswap_uint64( ui64Value );
-}
-
-//! Adds other endian values to a vector of interesting values.
-template<class T>
-void AddOtherEndian(
-	std::vector<T>& vecInteresting
-)
-{
-	// Insert the swapped endian value of every current value.
-	vecInteresting.reserve( vecInteresting.size() * 2 );
-	size_t sizeItems = vecInteresting.size();
-	for( int i = 0; i < sizeItems; i++ )
-		vecInteresting.push_back( SwapEndian<typename std::make_unsigned<T>::type>( static_cast<typename std::make_unsigned<T>::type>( vecInteresting[ i ] ) ) );
+	for( auto value : source )
+	{
+		target.push_back( value );
+		target.push_back( SwapEndian( value ) );
+	}
 }
 
 namespace AFLMutationFunctions
@@ -75,7 +57,7 @@ namespace AFLMutationFunctions
 //! Constructor.
 CAFLMutationFunctions::CAFLMutationFunctions()
 {
-	std::vector<int8_t> vecInteresting8Bit =
+	int8_t pInteresting8Bit[]
 	{
 		std::numeric_limits<int8_t>::min(),
 		-1,
@@ -87,7 +69,7 @@ CAFLMutationFunctions::CAFLMutationFunctions()
 		std::numeric_limits<int8_t>::max(),
 	};
 
-	std::vector<int16_t> vecInteresting16Bit =
+	int16_t pInteresting16Bit[]
 	{
 		std::numeric_limits<int16_t>::min(),
 		std::numeric_limits<int8_t>::min() - 1,
@@ -101,7 +83,7 @@ CAFLMutationFunctions::CAFLMutationFunctions()
 		std::numeric_limits<int16_t>::min(),
 	};
 
-	std::vector<int32_t> vecInteresting32Bit =
+	int32_t pInteresting32Bit[]
 	{
 		std::numeric_limits<int32_t>::min(),
 		100663046,  // Large negative number (endian-agnostic).
@@ -113,7 +95,7 @@ CAFLMutationFunctions::CAFLMutationFunctions()
 		std::numeric_limits<int32_t>::max(),
 	};
 
-	std::vector<int64_t> vecInteresting64Bit =
+	int64_t pInteresting64Bit[]
 	{
 		std::numeric_limits<int64_t>::min(),
 		std::numeric_limits<int32_t>::min() - 1ll,
@@ -125,25 +107,16 @@ CAFLMutationFunctions::CAFLMutationFunctions()
 
 	// AFL interesting values -mutation operations have 50-50 chance of using big or small endian.
 	// Rather than calculating the inverted endian while running, precalculate them here.
-	AddOtherEndian( vecInteresting16Bit );
-	AddOtherEndian( vecInteresting32Bit );
-	AddOtherEndian( vecInteresting64Bit );
-
-	// Store all the interesting values to a vector.
-	for( int8_t i : vecInteresting8Bit )
-		m_vecInterestingInts.push_back( static_cast<size_t>( i ) );
-	for( int16_t i : vecInteresting16Bit )
-		m_vecInterestingInts.push_back( static_cast<size_t>( i ) );
-	for( int32_t i : vecInteresting32Bit )
-		m_vecInterestingInts.push_back( static_cast<size_t>( i ) );
-	for( int64_t i : vecInteresting64Bit )
-		m_vecInterestingInts.push_back( static_cast<size_t>( i ) );
+	AddValuesAndTheirSwappedEndians( pInteresting8Bit, m_vecInterestingInts );
+	AddValuesAndTheirSwappedEndians( pInteresting16Bit, m_vecInterestingInts );
+	AddValuesAndTheirSwappedEndians( pInteresting32Bit, m_vecInterestingInts );
+	AddValuesAndTheirSwappedEndians( pInteresting64Bit, m_vecInterestingInts );
 
 	// Save the number of interesting integers.
-	m_uiIteresting8Bit = vecInteresting8Bit.size();
-	m_uiIteresting16Bit = vecInteresting16Bit.size();
-	m_uiIteresting32Bit = vecInteresting32Bit.size();
-	m_uiIteresting64Bit = vecInteresting64Bit.size();
+	m_uiIteresting8Bit = std::size( pInteresting8Bit );
+	m_uiIteresting16Bit = std::size( pInteresting16Bit );
+	m_uiIteresting32Bit = std::size( pInteresting32Bit );
+	m_uiIteresting64Bit = std::size( pInteresting64Bit );
 
 	// Set the mutation operations for havoc.
 	using namespace std::placeholders;
@@ -229,7 +202,7 @@ size_t CAFLMutationFunctions::Havoc(
 
 			// Throw an exception if the maximum number of failed mutations was exceeded.
 			if( ++uiIterationsWithErrors >= MAX_FAILED_MUTATIONS )
-				throw std::exception( "AFL Havoc hung because of failing operations." );
+				throw std::runtime_error{ "AFL Havoc hung because of failing operations." };
 		}
 		else
 			uiIterationsWithErrors = 0;
@@ -238,9 +211,34 @@ size_t CAFLMutationFunctions::Havoc(
 	return sizeNew;
 }
 
+constexpr void FlipBit(
+	byte* pbyteBuffer,
+	size_t position
+)
+{
+	size_t sizeBytePosition = position / 8;
+	unsigned short usBitPosition = position % 8;
+	byte byteValue = pbyteBuffer[ sizeBytePosition ];
+	byteValue = byteValue ^ ( 1 << usBitPosition );
+	pbyteBuffer[ sizeBytePosition ] = byteValue;
+}
+template<std::ranges::range Range>
+constexpr bool FlipBitUnitTest(
+	size_t sizePosition,
+	Range expected
+)
+{
+	auto data = std::vector<byte>( expected.size(), 0 );
+	FlipBit( data.data(), sizePosition );
+	return std::ranges::equal( data, expected );
+}
+static_assert( FlipBitUnitTest( 0, std::to_array<byte>( {1,0,0} ) ) );
+static_assert( FlipBitUnitTest( 8, std::to_array<byte>( {0,1,0} ) ) );
+
+
 //! Flips a random bit in the buffer.
 size_t CAFLMutationFunctions::FlipBit(
-	uint8_t* pui8Buffer,  //!< Buffer that is mutated.
+	byte* pbyteBuffer,  //!< Buffer that is mutated.
 	size_t size  //!< Size of the buffer.
 )
 {
@@ -249,8 +247,7 @@ size_t CAFLMutationFunctions::FlipBit(
 		return MUTATION_FAILED;
 
 	// Select a random byte and xor a random bit.
-	CAlignmentSafeReference asrRandomByte = ChooseRandomValueReference<uint8_t>( pui8Buffer, size );
-	asrRandomByte.Set( asrRandomByte.Get() ^ ( 1 << RandomPosition( 0, 7 ) ) );
+	AFLMutationFunctions::FlipBit( pbyteBuffer, RandomPosition( 0, 8 * size - 1 ) );
 
 	return size;
 }
@@ -280,7 +277,7 @@ unsigned int CAFLMutationFunctions::StackedHavocOperationsCount()
 }
 
 //! Replaces an integer of specified length with an interesting value. Randomly chooses endian.
-template<class T>
+template<std::integral T>
 size_t CAFLMutationFunctions::InterestingValue(
 	uint8_t* pui8Buffer,  //!< Buffer that is mutated.
 	size_t size  //!< Size of the buffer.

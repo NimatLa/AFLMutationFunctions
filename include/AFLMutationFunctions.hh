@@ -13,6 +13,7 @@ The purpose is to make the operations more reusable.
 #include <typeindex>
 #include <span>
 #include <functional>
+#include <concepts>
 
 #include "AlignmentSafeReference.hh"
 
@@ -25,27 +26,29 @@ namespace AFLMutationFunctions
 	// Public interface.
 	public:
 
+		using byte = uint8_t;
+
 		//! Constructor.
 		CAFLMutationFunctions();
 
-		// Seeds the random number generation.
+		//! Seeds the random number generation.
 		void Seed( uint32_t ui32Seed );
 
 		//! Applies a number of havoc mutations.
 		size_t Havoc(
-			uint8_t* pui8Buffer,  //!< Buffer that is mutated.
+			byte* pui8Buffer,  //!< Buffer that is mutated.
 			size_t size,  //!< Size of the data in the buffer.
 			size_t sizeMax  //!< Maximum size of the mutated data that fits in the buffer.
 		);
 
 		//! Flips a random bit in the buffer.
 		size_t FlipBit(
-			uint8_t* pui8Buffer,  //!< Buffer that is mutated.
+			byte* pui8Buffer,  //!< Buffer that is mutated.
 			size_t size  //!< Size of the buffer.
 		);
 
 		//! Replaces an integer of specified length with an interesting value. Randomly chooses endian.
-		template<class T>
+		template<std::integral T>
 		size_t InterestingValue(
 			uint8_t* pui8Buffer,  //!< Buffer that is mutated.
 			size_t size  //!< Size of the buffer.
@@ -99,15 +102,15 @@ namespace AFLMutationFunctions
 	protected:
 
 		//! Returns a span of interesting values.
-		virtual std::span<const size_t> GetInterestingValues(
+		std::span<const size_t> GetInterestingValues(
 			const std::type_index& type  //!< Type of the interesting values.
 		);
 
 		//! Returns the number of hacov operations that are done in a call to Havoc.
-		virtual unsigned int StackedHavocOperationsCount();
+		unsigned int StackedHavocOperationsCount();
 
 		//! Randomly chooses an integer from a range.
-		virtual size_t RandomPosition(
+		size_t RandomPosition(
 			size_t sizeMinimumInclusive,  //!< Minimum value in the range.
 			size_t sizeMaximumInclusive  //!< Maximum value in the range.
 		);

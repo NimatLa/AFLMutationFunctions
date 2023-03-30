@@ -4,6 +4,8 @@ Declares the CAlignmentSafeReference class.
 
 #pragma once
 
+#include <cstring>
+
 namespace AFLMutationFunctions
 {
 	//! Class that enables referencing a value in a buffer even if the buffer is not correctly aligned for the type.
@@ -27,7 +29,7 @@ namespace AFLMutationFunctions
 		) = delete;
 
 		//! Move constructor.
-		CAlignmentSafeReference(
+		constexpr CAlignmentSafeReference(
 			CAlignmentSafeReference&& afrOther
 		) :
 		m_pData( afrOther.m_pData ),
